@@ -2,110 +2,77 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <title>Dept Payment Table Generator</title>
+  <title>Schuld Aflossen</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    label, input, button { margin: 10px 5px; }
-    table { width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 20px; }
+    table { width: 500px; border-collapse: collapse; margin-top: 20px; }
     th, td { border: 1px solid #333; padding: 8px; text-align: center; }
     th { background-color: #f2f2f2; }
-    button { padding: 10px 20px; margin-top: 10px; }
+    button { margin-top: 20px; padding: 10px; margin-right: 10px; }
   </style>
 </head>
 <body>
 
-<h1>Calculate Dept Payment</h1>
+<h1>Schuld Aflossen Overzicht</h1>
+<table id="overzicht">
+  <tr>
+    <th>Termijn</th>
+    <th>Datum</th>
+    <th>Schuld (€)</th>
+  </tr>
+</table>
 
-<label>Dept (€):</label>
-<input type="number" id="deptAmount" value="12000"><br>
-
-<label>Pay per month (€):</label>
-<input type="number" id="termijnBedrag" value="95"><br>
-
-<button onclick="genereerTabel()">Genereer Tabel</button>
-
-<div id="resultaat" style="margin-top:20px;"></div>
+<button onclick="downloadTXT()">Download als TXT</button>
+<button onclick="downloadPDF()">Download als PDF</button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-let overzicht = [];
-let schuld, termijnBedrag;
+let schuld = 12000;
+const afschrijving = 95;
+let termijn = 0;
+const overzicht = [];
 
-// Genereer tabel
-function genereerTabel() {
-  overzicht = [];
-  document.getElementById('resultaat').innerHTML = ''; // Leegmaken
+let startJaar = 2005;
+let startMaand = 0; // januari (0 = januari)
 
-  schuld = parseFloat(document.getElementById('schuldBedrag').value);
-  termijnBedrag = parseFloat(document.getElementById('termijnBedrag').value);
-  if (isNaN(schuld) || isNaN(termijnBedrag) || schuld <= 0 || termijnBedrag <= 0) {
-    alert("Fill in correct numbers.");
-    return;
-  }
-
-  let huidigeDatum = new Date();
-  huidigeDatum.setMonth(huidigeDatum.getMonth() + 1); // Volgende maand starten
-
-  let termijn = 0;
-  while (schuld > 0) {
-    overzicht.push({
-      termijn: termijn,
-      datum: huidigeDatum.toLocaleDateString('nl-NL', { year: 'numeric', month: 'long' }),
-      schuld: schuld.toFixed(2)
-    });
-    termijn++;
-    schuld -= termijnBedrag;
-    if (schuld < 0) schuld = 0;
-    huidigeDatum.setMonth(huidigeDatum.getMonth() + 1);
-  }
-
-  toonTabel();
+// Vul overzicht
+while (schuld > 0) {
+  let datum = new Date(startJaar, startMaand + termijn, 1);
+  overzicht.push({ 
+    termijn: termijn, 
+    datum: datum.toLocaleDateString('nl-NL', { year: 'numeric', month: 'long' }),
+    schuld: schuld
+  });
+  termijn++;
+  schuld -= afschrijving;
+  if (schuld < 0) schuld = 0;
 }
 
-// Toon de tabel en downloadknoppen
-function toonTabel() {
-  let html = `
-    <table>
-      <tr>
-        <th>Termijn</th>
-        <th>Datum</th>
-        <th>Schuld (€)</th>
-      </tr>
-  `;
-  overzicht.forEach(item => {
-    html += `
-      <tr>
-        <td>${item.termijn}</td>
-        <td>${item.datum}</td>
-        <td>€${item.schuld}</td>
-      </tr>
-    `;
-  });
-  html += `</table>
-    <button onclick="downloadTXT()">Download als TXT</button>
-    <button onclick="downloadPDF()">Download als PDF</button>
-  `;
-
-  document.getElementById('resultaat').innerHTML = html;
+// Tabel invullen
+const tabel = document.getElementById('overzicht');
+for (let i = 0; i < overzicht.length; i++) {
+  const rij = tabel.insertRow();
+  rij.insertCell(0).innerText = overzicht[i].termijn;
+  rij.insertCell(1).innerText = overzicht[i].datum;
+  rij.insertCell(2).innerText = "€" + overzicht[i].schuld;
 }
 
 // Download als TXT
 function downloadTXT() {
   let tekst = "Termijn | Datum        | Schuld in euro\n----------------------------------------\n";
   overzicht.forEach(item => {
-    tekst += ${item.termijn} | ${item.datum} | €${item.schuld}\n;
+    tekst += `${item.termijn} | ${item.datum} | €${item.schuld}\n`;
   });
 
   const blob = new Blob([tekst], { type: 'text/plain' });
   const url = window.URL.createObjectURL(blob);
-
+  
   const link = document.createElement('a');
   link.href = url;
-  link.download = schuld_aflossing_${new Date().toLocaleDateString('nl-NL')}.txt;
-  document.body.appendChild(link);
+  link.download = 'schuld_aflossing.txt';
+  document.body.appendChild(link); // Toevoegen aan document
   link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
+  document.body.removeChild(link); // Weghalen na klik
+  window.URL.revokeObjectURL(url); // Opschonen
 }
 
 // Download als PDF
@@ -122,6 +89,7 @@ function downloadPDF() {
   doc.text("Termijn", 10, startY);
   doc.text("Datum", 40, startY);
   doc.text("Schuld (€)", 120, startY);
+
   doc.line(10, startY + 2, 200, startY + 2);
 
   // Gegevens invullen
@@ -132,21 +100,23 @@ function downloadPDF() {
     doc.text("€" + item.schuld, 120, y);
 
     y += 7;
-    if (y > 270) {
+    if (y > 270) { // Nieuwe pagina als te vol
       doc.addPage();
       y = 20;
     }
   });
 
+  // Samenvatting onderaan
   y += 10;
-  let totaalBetaald = overzicht.length * termijnBedrag;
+  let totaalBetaald = overzicht.length * afschrijving;
   doc.setFontSize(12);
-  doc.text(Totaal aantal termijnen: ${overzicht.length}, 10, y);
+  doc.text(`Totaal aantal termijnen: ${overzicht.length}`, 10, y);
   y += 7;
-  doc.text(Totaal afgelost bedrag: €${totaalBetaald.toFixed(2)}, 10, y);
+  doc.text(`Totaal afgelost bedrag: €${totaalBetaald}`, 10, y);
 
-  doc.save(schuld_aflossing_${new Date().toLocaleDateString('nl-NL')}.pdf);
+  doc.save('schuld_aflossing.pdf');
 }
+
 </script>
 
 </body>
